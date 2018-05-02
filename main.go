@@ -1,11 +1,61 @@
 package main
 
-import "net/http"
+import (
+	"encoding/json"
+	"net/http"
+	"strings"
+)
+
+//The type keyword defines a new type, which we call weatherData, and declare as a struct.
+// Each field in the struct has a name (e.g. Name, Main), a type (string, another anonymous struct), and what’s known as a tag.
+//Tags are like metadata, and allow us to use the encoding/json package to directly unmarshal the API’s response into our struct.
+type weatherData struct {
+	Name string `json:"name"`
+	Main struct {
+		Kelvin float64 `json:"temp"`
+	} `json: "main"`
+}
+
+func query(city string) (weatherData, error) {
+	resp, err := http.Get("http://api.openweathermap.org/data/2.5/weather?APPID=<~APPID HERE~>&q=" + city)
+	if err != nil {
+		return weatherData{}, err
+	}
+
+	// If no errors, defer call to close response body
+	// "https://golang.org/doc/effective_go.html#defer"
+	defer resp.Body.Close()
+
+	// allocate weatherData struct
+	var d weatherData
+
+	// use a json.Decoder to unmarshal from the response body directly into our struct
+	if err := json.NewDecoder(resp.Body).Decode(&d); err != nil {
+		return weatherData{}, err
+	}
+
+	// If the decode succeeds, we return the weatherData to the caller, with a nil error to indicate success.
+	return d, nil
+}
 
 func main() {
 	// install a handler function at the root path of our webserver.
 	// http.HandleFunc operates on the default HTTP router, officially called a ServeMux.
 	http.HandleFunc("/", hello)
+
+	http.HandleFunc("/weather/", func(w http.ResponseWriter, r *http.Request) {
+		city := strings.SplitN(r.URL.Path, "/", 3)[2]
+
+		data, err := query(city)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		json.NewEncoder(w).Encode(data)
+	})
+
 	http.ListenAndServe(":3000", nil)
 }
 
