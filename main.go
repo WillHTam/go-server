@@ -43,15 +43,22 @@ func main() {
 	// http.HandleFunc operates on the default HTTP router, officially called a ServeMux.
 	http.HandleFunc("/", hello)
 
+	// Request Handler for /weather route
 	http.HandleFunc("/weather/", func(w http.ResponseWriter, r *http.Request) {
+		// takes the string after /weather/ and assigns it to city
 		city := strings.SplitN(r.URL.Path, "/", 3)[2]
 
+		// Make query with city
+		// If error, report with http.Error helper function
 		data, err := query(city)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			// if error, return out of function to complete HTTP request
 			return
 		}
 
+		// Otherwise, tell Client that JSON is being sent
+		// use json.NewEncoder to encode weatherData as JSON directly
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		json.NewEncoder(w).Encode(data)
 	})
